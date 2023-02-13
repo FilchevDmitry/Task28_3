@@ -7,19 +7,10 @@
 #include<mutex>
 
 std::mutex inOrder, printScrean, inCourier;
-	std::deque<int> kitchenOrder;
-	std::deque<int> courierOrder;
+
 class Restaurant
 {
 private:
-	enum MENU 
-	{
-		PIZZA,
-		SOUP, 
-		STEAK, 
-		SALAD,
-		SUSHI
-	};
 
 public:
 	int Order()
@@ -29,7 +20,7 @@ public:
 	}
 	std::string printOrder(int &numOrder)
 	{	
-		MENU menu;
+		
 		switch (numOrder)
 		{
 		case(0):
@@ -61,30 +52,35 @@ public:
 			break;
 		}
 	}
-	void Waiter()
+	void Waiter(std::deque <int> &inKitchenOrder)
 	{
 		while (true)
 		{
 			std::srand(time(nullptr));
-			int timer = 5 + rand() % (5);
-			std::this_thread::sleep_for(std::chrono::seconds(timer));
-			inOrder.lock();
 			int order = Order();
-			kitchenOrder.push_back(order);
+			inOrder.lock();
+			inKitchenOrder.push_back(order);
+			inOrder.unlock();
+
 			printScrean.lock();
 			std::cout << "Order accepted :" << printOrder(order) << std::endl;
 			printScrean.unlock();
-			inOrder.unlock();
+			
+			int timer = 5 + rand() % (5);
+			std::this_thread::sleep_for(std::chrono::seconds(timer));
 		}
 	}
-	void Kitchen()
+	void Kitchen(std::deque <int>& inKitchenOrder, std::deque <int>& inCourierOrder)
 	{
 		while (true)
-		{
-			if (kitchenOrder.size() != 0)
+		{	
+
+			if (inKitchenOrder.size() != 0)
 			{
 				inOrder.lock();
-				int dish = kitchenOrder.at(0);
+				int dish = inKitchenOrder.at(0);
+				inKitchenOrder.erase(begin(inKitchenOrder));
+				inOrder.unlock();
 				printScrean.lock();
 				std::cout << "It's being prepared now :" << printOrder(dish) << std::endl;
 				printScrean.unlock();
@@ -92,38 +88,52 @@ public:
 				int timer = 5 + rand() % (10);
 				std::this_thread::sleep_for(std::chrono::seconds(timer));
 				inCourier.lock();
-				courierOrder.push_back(dish);
+				inCourierOrder.push_back(dish);
+				inCourier.unlock();
 				printScrean.lock();
 				std::cout << "Ready for delivery :" << printOrder(dish) << std::endl;
 				printScrean.unlock();
-				inCourier.unlock();
-				kitchenOrder.erase(begin(kitchenOrder));
-				inOrder.unlock();
 			}
 		}
 	}
-	void Courier()
+	void Courier(std::deque <int>& inCourierOrder)
 	{
-		const int delivery = 9;
-		for (int i = 0; i < delivery; i++)
-		{
+	
 			inCourier.lock();
-			for (int j = 0; j < courierOrder.size(); j++)
+			for (int j = 0; j < inCourierOrder.size(); j++)
 			{
+				printScrean.lock();
 				std::cout << "The order : " << printOrder(j) << " has been delivered" << std::endl;
+				printScrean.unlock();
 			}
-			courierOrder.clear();
+			inCourierOrder.clear();
 			inCourier.unlock();
 			std::this_thread::sleep_for(std::chrono::seconds(30));
-		}
 	}
 };
 int main()
 {
+	std::deque<int> kitchenOrder;
+	std::deque<int> courierOrder;
 	Restaurant restaurant;
-	std::thread r1(&Restaurant::Waiter);
-	std::thread r2(&Restaurant::Kitchen);
-	std::thread r3(&Restaurant::Courier);
+	const int DELIVERY = 9;
+	std::thread r1([&]()
+		{
+			restaurant.Waiter(kitchenOrder);
+		});
+	std::thread r2([&]()
+		{
+			restaurant.Kitchen(kitchenOrder, courierOrder);
+		});
+	
+	std::thread r3([&]()
+		{
+			
+			for (int i = 0; i < DELIVERY; i++) 
+			{
+				restaurant.Courier(courierOrder);
+			}
+		});
 	r1.detach();
 	r2.detach();
 	r3.join();
