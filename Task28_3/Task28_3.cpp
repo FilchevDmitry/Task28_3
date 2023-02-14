@@ -95,10 +95,9 @@ public:
 	}
 	void Courier(std::deque <int>& inCourierOrder)
 	{		
-		
+			inCourier.lock();
 			if (inCourierOrder.size() != 0)
 			{
-				inCourier.lock();
 				for (int j = 0; j < inCourierOrder.size(); ++j)
 				{
 				printScrean.lock();
@@ -106,8 +105,8 @@ public:
 				printScrean.unlock();
 				}
 				inCourierOrder.clear();
-				inCourier.unlock();
 			}	
+			inCourier.unlock();
 	}
 };
 int main()
