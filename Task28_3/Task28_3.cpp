@@ -16,7 +16,8 @@ public:
 	int Order()
 	{
 		std::srand(std::time(nullptr));
-		return std::rand() % (3);
+		int num= rand() % (4);
+		return num;
 	}
 	std::string printOrder(int &numOrder)
 	{	
@@ -73,40 +74,37 @@ public:
 	void Kitchen(std::deque <int>& inKitchenOrder, std::deque <int>& inCourierOrder)
 	{
 		while (true)
-		{	
-				inOrder.lock();
-				int dish = inKitchenOrder.at(0);
-				inKitchenOrder.erase(begin(inKitchenOrder));
-				inOrder.unlock();
-				printScrean.lock();
-				std::cout << "It's being prepared now :" << printOrder(dish) << std::endl;
-				printScrean.unlock();
-
+		{		
 				std::srand(time(nullptr));
 				int timer = 5 + rand() % (10);
 				std::this_thread::sleep_for(std::chrono::seconds(timer));
-
-				inCourier.lock();
-				inCourierOrder.push_back(dish);
-				inCourier.unlock();
+				inOrder.lock();
+				int dishO = inKitchenOrder[0];
+				inKitchenOrder.erase(begin(inKitchenOrder));
+				inOrder.unlock();
 				printScrean.lock();
-				std::cout << "Ready for delivery :" << printOrder(dish) << std::endl;
+				std::cout << "It's being prepared now :" << printOrder(dishO) << std::endl;
 				printScrean.unlock();
-			
+				inCourier.lock();
+				inCourierOrder.push_back(dishO);
+				printScrean.lock();
+				std::cout << "Ready for delivery :" << printOrder(dishO) << std::endl;
+				printScrean.unlock();
+				inCourier.unlock();
 		}
 	}
 	void Courier(std::deque <int>& inCourierOrder)
 	{		
-		std::this_thread::sleep_for(std::chrono::seconds(30));
+		
 			if (inCourierOrder.size() != 0)
 			{
 				inCourier.lock();
-				for (int j = 0; j < inCourierOrder.size(); j++)
+				for (int j = 0; j < inCourierOrder.size(); ++j)
 				{
 				printScrean.lock();
-				std::cout << "The order : " << printOrder(j) << " has been delivered" << std::endl;
+				std::cout << "The order : " << printOrder(inCourierOrder[j]) << " has been delivered" << std::endl;
 				printScrean.unlock();
-					}
+				}
 				inCourierOrder.clear();
 				inCourier.unlock();
 			}	
@@ -117,23 +115,24 @@ int main()
 	std::deque<int> kitchenOrder;
 	std::deque<int> courierOrder;
 	Restaurant restaurant;
-	const int DELIVERY = 3;
-	std::thread r1([&]()
+	const int DELIVERY = 10;
+	std::thread order([&]()
 		{
 			restaurant.Waiter(kitchenOrder);
 		});
-	std::thread r2([&]()
+	std::thread kitchen([&]()
 		{
 			restaurant.Kitchen(kitchenOrder, courierOrder);
 		});
 
 	for (int i = 0; i < DELIVERY; i++) 
 	{
+		std::this_thread::sleep_for(std::chrono::seconds(30));
 		restaurant.Courier(courierOrder);
 	}
 		
-	r1.detach();
-	r2.detach();
+	order.detach();
+	kitchen.detach();
 	
 	return 0;
 }
